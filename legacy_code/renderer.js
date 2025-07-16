@@ -2,9 +2,7 @@
 
 // Массив участников боя (тестовые данные для старта)
 let combatants = [
-  { name: 'Андрей', type: 'pc', initiative: 15, ac: 16, hp: 30 },
-  { name: 'Гоблин', type: 'monster', initiative: 12, ac: 13, hp: 7 },
-  { name: 'NPC-страж', type: 'npc', initiative: 10, ac: 15, hp: 20 }
+  // Пусто, стартовых персонажей нет
 ];
 
 function renderCombatants() {

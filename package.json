@@ -11,5 +11,8 @@
   "description": "",
   "devDependencies": {
     "electron": "^37.2.2"
+  },
+  "dependencies": {
+    "gsap": "^3.13.0"
   }
 }

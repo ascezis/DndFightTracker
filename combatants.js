@@ -1,9 +1,7 @@
 // combatants.js — управление участниками боя
 
 let combatants = [
-  { name: 'Андрей', type: 'pc', initiative: 15, ac: 16, hp: 30, note: '' },
-  { name: 'Гоблин', type: 'monster', initiative: 12, ac: 13, hp: 7, note: '' },
-  { name: 'NPC-страж', type: 'npc', initiative: 10, ac: 15, hp: 20, note: '' }
+  // Пусто, стартовых персонажей нет
 ];
 
 let selectedCombatants = new Set();
@@ -99,6 +97,10 @@ export function getSortedAndFilteredCombatants() {
 
 export function getCurrentIdx() {
   return currentIdx;
+}
+
+export function setCurrentIdx(idx) {
+  currentIdx = idx;
 }
 
 export function getRound() {

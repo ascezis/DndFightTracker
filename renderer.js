@@ -1,3 +1,6 @@
+// Включаем тёмную тему по умолчанию
+if (document.body) document.body.classList.add('dark-theme');
+
 import {
   getCombatants,
   addCombatant as addCombatantRaw,
@@ -14,6 +17,7 @@ import {
   getSort,
   getFilter,
   getCurrentIdx,
+  setCurrentIdx,
   getRound,
   nextTurn,
   prevTurn,
@@ -189,14 +193,15 @@ function showFullEditModal({
   modal.innerHTML = `
     <div style="background:#fff;padding:24px 20px;border-radius:16px;min-width:320px;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:16px;">
       <div style="font-size:1.1em;font-weight:500;margin-bottom:4px;">${initial.isNew ? 'Добавить участника' : 'Редактировать участника'}</div>
-      <input id="edit-name" type="text" placeholder="Имя" value="${initial.name ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-name" type="text" placeholder="Имя персонажа или монстра" value="${initial.name ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
       <select id="edit-type" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;">
-        ${types.map(t => `<option value="${t}"${initial.type === t ? ' selected' : ''}>${t}</option>`).join('')}
+        ${types.map(t => `<option value="${t}"${initial.type === t ? ' selected' : ''}>${t === 'pc' ? 'Игрок (PC)' : t === 'npc' ? 'NPC' : 'Монстр'}</option>`).join('')}
       </select>
-      <input id="edit-initiative" type="number" placeholder="Инициатива" value="${initial.initiative ?? 0}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
-      <input id="edit-ac" type="number" placeholder="КД (AC)" value="${initial.ac ?? 10}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
-      <input id="edit-hp" type="number" placeholder="Хиты" value="${initial.hp ?? 10}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
-      <input id="edit-note" type="text" placeholder="Заметка" value="${initial.note ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-initiative" type="number" placeholder="Инициатива (очередь хода)" value="${initial.initiative ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-ac" type="number" placeholder="Класс Доспеха (AC) — защита" value="${initial.ac ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-hp" type="number" placeholder="Текущие хиты (HP) — здоровье" value="${initial.hp ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-maxhp" type="number" placeholder="Максимальные хиты (макс. HP)" value="${initial.maxHp ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <input id="edit-note" type="text" placeholder="Заметка (например, особенности, эффекты)" value="${initial.note ?? ''}" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
       <div style="display:flex;gap:12px;justify-content:flex-end;">
         <button id="edit-modal-cancel" style="padding:7px 18px;border-radius:8px;border:none;background:#e5e5ea;cursor:pointer;">Отмена</button>
         <button id="edit-modal-ok" style="padding:7px 18px;border-radius:8px;border:none;background:#007aff;color:#fff;cursor:pointer;">OK</button>
@@ -213,10 +218,14 @@ function showFullEditModal({
     const initiative = parseInt(modal.querySelector('#edit-initiative').value, 10) || 0;
     const ac = parseInt(modal.querySelector('#edit-ac').value, 10) || 10;
     const hp = parseInt(modal.querySelector('#edit-hp').value, 10) || 10;
+    const maxHp = parseInt(modal.querySelector('#edit-maxhp').value, 10) || hp;
     const note = modal.querySelector('#edit-note').value;
     if (name) {
-      onSubmit({ name, type, initiative, ac, hp, note });
-      close();
+      try {
+        onSubmit({ name, type, initiative, ac, hp, maxHp, note });
+      } finally {
+        close();
+      }
     } else {
       modal.querySelector('#edit-name').focus();
     }
@@ -234,7 +243,7 @@ function showFullEditModal({
 
 function addCombatant() {
   showFullEditModal({
-    initial: { isNew: true },
+    initial: {},
     onSubmit: (data) => {
       addCombatantRaw(data);
       renderCombatants();
@@ -322,6 +331,7 @@ function showMonsterModal() {
           initiative: 0,
           ac: parseInt(m.ac) || 10,
           hp: typeof m.hp === 'number' ? m.hp : (parseInt((m.hp||'').split('(')[0]) || 10),
+          maxHp: typeof m.hp === 'number' ? m.hp : (parseInt((m.hp||'').split('(')[0]) || 10),
           note: m.trait && m.trait.name ? m.trait.name+': '+m.trait.text : ''
         });
         modal.remove();
@@ -482,6 +492,9 @@ function showMassInventoryModal() {
           combatants[idx].inventory.push({ ...item });
         });
         renderCombatants();
+        // Закрываем модалку вручную
+        const invModal = document.getElementById('inventory-modal');
+        if (invModal) invModal.remove();
       }
     });
   };
@@ -805,6 +818,16 @@ const icons = {
   reset: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 6v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`
 };
 
+// SVG-иконки для темы
+const themeIcons = {
+  dark: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a8 8 0 1 0 8 8c0-4.418-3.582-8-8-8z" fill="currentColor"/></svg>`,
+  light: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2"><line x1="10" y1="1" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="19"/><line x1="1" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="19" y2="10"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="13.66" y1="13.66" x2="15.78" y2="15.78"/><line x1="4.22" y1="15.78" x2="6.34" y2="13.66"/><line x1="13.66" y1="6.34" x2="15.78" y2="4.22"/></g></svg>`
+};
+
+function getTheme() {
+  return document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+}
+
 function renderCombatants() {
   const app = document.getElementById('app');
   if (!app) return;
@@ -812,11 +835,16 @@ function renderCombatants() {
   const selected = new Set(getSelected());
   const sort = getSort();
   const filter = getFilter();
-  const currentIdx = getCurrentIdx();
+  let currentIdx = getCurrentIdx();
   const round = getRound();
+  // --- Корректировка индекса активного участника ---
+  if (currentIdx >= combatants.length) {
+    setCurrentIdx(0);
+    currentIdx = 0;
+  }
 
   // --- Новая панель навигации ---
-  let navHtml = `<div class="nav-wrapper"><nav class="main-nav" style="position:sticky;top:0;z-index:10;background:var(--main-bg);padding:10px 0 6px 0;box-shadow:0 2px 8px #0001;display:flex;flex-wrap:wrap;gap:10px;align-items:center;backdrop-filter:blur(6px);">
+  let navHtml = `<div class="nav-wrapper"><nav class="main-nav">
     <button id="add-combatant-btn" class="nav-btn accent">${icons.add} <span>Добавить</span></button>
     <button id="add-monster-btn" class="nav-btn">${icons.monster} <span>Монстр</span></button>
     <button id="reference-btn" class="nav-btn">${icons.ref} <span>Справочник</span></button>
@@ -838,6 +866,7 @@ function renderCombatants() {
     <button id="prev-turn-btn" class="nav-btn">${icons.prev}</button>
     <button id="next-turn-btn" class="nav-btn accent">${icons.next}</button>
     <button id="reset-turn-btn" class="nav-btn">${icons.reset}</button>
+    <button id="theme-toggle-btn" class="nav-btn" style="margin-left:auto;">${getTheme()==='dark'?themeIcons.dark:themeIcons.light} <span>${getTheme()==='dark'?'Тёмная':'Светлая'} тема</span></button>
   </nav></div>`;
 
   let html = navHtml;
@@ -855,8 +884,8 @@ function renderCombatants() {
     { key: 'spellSlots', label: 'Слоты/Ресурсы', resizable: true },
     { key: 'note', label: 'Заметка', resizable: true },
     { key: 'inv', label: 'Инвентарь', resizable: true },
-    { key: '', label: '', resizable: false },
-    { key: '', label: '', resizable: false }
+    { key: 'edit', label: '', resizable: false },
+    { key: 'delete', label: '', resizable: false }
   ];
   // Сохраняем ширины в памяти (можно расширить до localStorage)
   if (!window._colWidths) window._colWidths = {};
@@ -882,90 +911,93 @@ function renderCombatants() {
     html += `<td class="cell-name" data-idx="${i}" style="cursor:pointer">${c.name}</td>`;
     // Тип (select)
     if (isEditing.row === i && isEditing.col === 'type') {
-      html += `<td><select class='inline-edit' data-idx='${i}' data-col='type' autofocus style='width:100%;font-size:1em;'>
+      html += `<td style='text-align:center;'><select class='inline-edit' data-idx='${i}' data-col='type' autofocus style='width:100%;font-size:1em;'>
         <option value='pc' ${c.type==='pc'?'selected':''}>PC</option>
         <option value='npc' ${c.type==='npc'?'selected':''}>NPC</option>
         <option value='monster' ${c.type==='monster'?'selected':''}>Monster</option>
       </select></td>`;
     } else {
-      html += `<td class="cell-type" data-idx="${i}" style="cursor:pointer">${c.type}</td>`;
+      html += `<td class="cell-type" data-idx="${i}" style="cursor:pointer;text-align:center;">${c.type}</td>`;
     }
     // Инициатива
     if (isEditing.row === i && isEditing.col === 'initiative') {
-      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='initiative' value='${c.initiative}' autofocus style='width:100%;font-size:1em;'></td>`;
+      html += `<td style='text-align:center;'><input type='number' class='inline-edit' data-idx='${i}' data-col='initiative' value='${c.initiative}' autofocus style='width:100%;font-size:1em;'></td>`;
     } else {
-      html += `<td class="cell-initiative" data-idx="${i}" style="cursor:pointer">${c.initiative}</td>`;
+      html += `<td class="cell-initiative" data-idx="${i}" style="cursor:pointer;text-align:center;">${c.initiative}</td>`;
     }
     // КД
     if (isEditing.row === i && isEditing.col === 'ac') {
-      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='ac' value='${c.ac}' autofocus style='width:100%;font-size:1em;'></td>`;
+      html += `<td style='text-align:center;'><input type='number' class='inline-edit' data-idx='${i}' data-col='ac' value='${c.ac}' autofocus style='width:100%;font-size:1em;'></td>`;
     } else {
-      html += `<td class="cell-ac" data-idx="${i}" style="cursor:pointer">${c.ac}</td>`;
+      html += `<td class="cell-ac" data-idx="${i}" style="cursor:pointer;text-align:center;">${c.ac}</td>`;
     }
     // Хиты
     if (isEditing.row === i && isEditing.col === 'hp') {
-      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='hp' value='${c.hp}' autofocus style='width:100%;font-size:1em;'></td>`;
+      html += `<td style='text-align:center;'><input type='number' class='inline-edit' data-idx='${i}' data-col='hp' value='${c.hp}' autofocus style='width:100%;font-size:1em;'></td>`;
     } else {
-      html += `<td class="cell-hp" data-idx="${i}" style="cursor:pointer">${c.hp}</td>`;
+      // --- Цветовая индикация состояния хитов ---
+      let maxHp = c.maxHp || c.hp || 1;
+      if (c.hp > maxHp) maxHp = c.hp; // если вдруг вылечили больше максимума
+      let percent = (c.hp / maxHp) * 100;
+      let hpColor = '#fff';
+      let critical = false;
+      if (c.hp === 0) { hpColor = '#e53935'; critical = true; } // красный
+      else if (percent < 10) { hpColor = '#ff9800'; critical = true; } // оранжевый
+      else if (percent < 50) { hpColor = '#fff59d'; critical = true; } // жёлтый
+      else if (percent > 80) hpColor = '#fff'; // белый
+      else hpColor = '#f5f5f5'; // нейтральный светло-серый
+      let hpStyle = `cursor:pointer;background:${hpColor};font-weight:600;text-align:center;`;
+      if (c.hp === 0) hpStyle += 'color:#b71c1c;';
+      // Если строка активная — перекрываем фон активным цветом ТОЛЬКО если не критическое состояние
+      if (isActive && !critical) hpStyle += 'background:var(--active-row-bg,#e3f2fd);';
+      html += `<td class=\"cell-hp\" data-idx=\"${i}\" style=\"${hpStyle}\">${c.hp}</td>`;
     }
     // Эффекты
-    html += `<td class="cell-effects" data-idx="${i}">
-      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+    html += `<td class="cell-effects" data-idx="${i}" style="text-align:center;">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;">
         ${(c.effects||[]).map((eff, j) => `<span class='chip effect-chip' title='${eff.desc||''}' style='background:#b0bec5;color:#222;'>${eff.icon||'★'}${eff.name}${eff.duration?` <span style='color:#888;font-size:0.95em;'>(${eff.duration})</span>`:''}<button class='effect-remove' data-idx="${i}" data-eff="${j}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#c00;border:none;cursor:pointer;'>×</button></span>`).join('')}
         <button class='effect-add' data-idx="${i}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#222;border:none;cursor:pointer;'>+</button>
       </div>
     </td>`;
     // Вдохновение
     html += `<td class="cell-inspiration" data-idx="${i}" style="text-align:center;">
-      <button class="inspiration-btn${c.inspiration ? ' active' : ''}" data-idx="${i}" title="Вдохновение" style="background:none;border:none;cursor:pointer;font-size:1.25em;line-height:1;">${c.inspiration ? '⭐' : '☆'}</button>
+      <div class="inspiration-toggle" data-idx="${i}" style="cursor:pointer;padding:4px 8px;border-radius:8px;background:${c.inspiration ? '#e8f5e9' : '#f3e5f5'};color:${c.inspiration ? '#2e7d32' : '#c62828'};font-weight:600;">
+        ${c.inspiration ? 'Вдохновение' : 'Нет вдохновения'}
+      </div>
     </td>`;
     // Слоты/Ресурсы
-    html += `<td class="cell-spellslots" data-idx="${i}" style="text-align:center;">
-      <button class="spellslots-btn" data-idx="${i}" title="Слоты заклинаний и ресурсы" style="background:none;border:none;cursor:pointer;font-size:1.18em;line-height:1;">🪄</button>
-      <span class="spellslots-summary" style="font-size:0.98em;color:#888;">${(c.spellSlots||[]).map((s,j)=>s!=null?`<span title='Слот ${j+1}'>${s}</span>`:'').join(' ')}${(c.resources||[]).map(r=>r.name?`<span title='${r.name}'>${r.value}</span>`:'').join(' ')}</span>
+    html += `<td class="cell-spellSlots" data-idx="${i}" style="text-align:center;">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;">
+        ${(c.spellSlots||[]).map(slot => `<span class='chip spell-slot-chip' title='${slot.name} (${slot.value})' style='background:#e0f2f7;color:#1976d2;'>${slot.icon}${slot.name}</span>`).join('')}
+        <button class='spell-slot-add' data-idx="${i}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#222;border:none;cursor:pointer;'>+</button>
+      </div>
     </td>`;
     // Заметка
     if (isEditing.row === i && isEditing.col === 'note') {
-      html += `<td><input type='text' class='inline-edit' data-idx='${i}' data-col='note' value='${c.note||''}' autofocus style='width:100%;font-size:1em;'></td>`;
+      html += `<td style='text-align:center;'><textarea class='inline-edit' data-idx='${i}' data-col='note' style='width:100%;font-size:1em;'>${c.note}</textarea></td>`;
     } else {
-      html += `<td class="cell-note" data-idx="${i}" style="cursor:pointer">${c.note||''}</td>`;
+      html += `<td class="cell-note" data-idx="${i}" style="cursor:pointer;text-align:center;">${c.note || ''}</td>`;
     }
-    html += `<td class="cell-inventory" data-idx="${i}">
-        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-          ${(c.inventory||[]).map((item, j) => {
-            if (!item || typeof item !== 'object' || !item.name) return '';
-            const typeColors = {
-              'оружие': '#bdb76b',
-              'броня': '#90caf9',
-              'зелье': '#ffb74d',
-              'артефакт': '#ce93d8',
-              'прочее': '#b0bec5'
-            };
-            const color = typeColors[item.type] || '#b0bec5';
-            const usedIcon = item.used ? '✔️' : '';
-            const style = `background:${color};color:#222;border-radius:8px;padding:2px 8px;display:inline-flex;align-items:center;gap:4px;${item.used?'text-decoration:line-through;opacity:0.6;':''}`;
-            return `<span class='chip' style='${style}' title='${item.desc?item.desc.replace(/'/g,'&#39;'):''}'>
-              <span style='font-weight:600;'>${item.name}</span>
-              <span style='font-size:0.98em;'>x${item.qty||1}</span>
-              <span style='font-size:0.98em;'>${item.type}</span>
-              ${item.weight?`<span style='font-size:0.95em;color:#888;'>${item.weight}кг</span>`:''}
-              ${item.cost?`<span style='font-size:0.95em;color:#888;'>${item.cost}зм</span>`:''}
-              ${usedIcon?`<span title='Использован' style='font-size:1.1em;'>${usedIcon}</span>`:''}
-              <button class='chip-edit' data-idx="${i}" data-item="${j}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#222;border:none;cursor:pointer;'>✎</button>
-              <button class='chip-remove' data-idx="${i}" data-item="${j}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#c00;border:none;cursor:pointer;'>×</button>
-            </span>`;
-          }).join('')}
-          <button class='add-inventory-btn' data-idx="${i}" style='margin-left:4px;padding:2px 10px;border-radius:8px;background:#f6f7f9;color:#007aff;border:1.5px solid #e5e5ea;cursor:pointer;'>+ Предмет</button>
-        </div>
-      </td>
-      <td><button class="edit-combatant-btn" data-idx="${i}" style="padding:4px 10px;border-radius:8px;background:#888;color:#fff;border:none;cursor:pointer;">Редактировать</button></td>
-      <td><button class="delete-combatant-btn" data-idx="${i}" style="padding:4px 10px;border-radius:8px;background:#e74c3c;color:#fff;border:none;cursor:pointer;">Удалить</button></td>
-    </tr>`;
+    // Инвентарь
+    html += `<td class="cell-inventory" data-idx="${i}" style="text-align:center;">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;">
+        ${(c.inventory||[]).map(item => `<span class='chip inventory-item-chip' title='${item.name} (${item.qty})' style='background:#e0f2f7;color:#1976d2;'>${item.icon}${item.name}</span>`).join('')}
+        <button class='inventory-item-add' data-idx="${i}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#222;border:none;cursor:pointer;'>+</button>
+      </div>
+    </td>`;
+    // Кнопки редактирования и удаления
+    html += `<td class="cell-edit" data-idx="${i}" style="text-align:center;">
+      <button class="edit-btn" data-idx="${i}" title="Редактировать">${icons.edit || `<svg width='18' height='18' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M4 14.5V16h1.5l8.06-8.06-1.5-1.5L4 14.5zm11.04-7.04a1 1 0 0 0 0-1.41l-2.09-2.09a1 1 0 0 0-1.41 0l-1.13 1.13 3.5 3.5 1.13-1.13z' fill='currentColor'/></svg>`}</button>
+      <button class="delete-btn" data-idx="${i}" title="Удалить">${icons.delete}</button>
+    </td>`;
+    // --- Закрываю строку участника ---
+    html += `</tr>`;
   }
   html += '</tbody></table>';
   app.innerHTML = html;
 
-  // Кнопка добавления
+  // === ОБРАБОТЧИКИ КНОПОК И ЭЛЕМЕНТОВ ===
+  // Кнопка добавления участника
   const addBtn = app.querySelector('#add-combatant-btn');
   if (addBtn) addBtn.addEventListener('click', addCombatant);
 
@@ -987,35 +1019,13 @@ function renderCombatants() {
   // Кнопка массового урона
   const massDmgBtn = app.querySelector('#mass-damage-btn');
   if (massDmgBtn) massDmgBtn.addEventListener('click', () => {
-    showEditModal({
-      title: 'Нанести урон (всем выделенным):',
-      value: 1,
-      type: 'number',
-      onSubmit: (val) => {
-        const dmg = parseInt(val, 10);
-        if (!isNaN(dmg) && dmg > 0) {
-          massDamage(dmg);
-          renderCombatants();
-        }
-      }
-    });
+    showMassDamageModal('damage');
   });
 
   // Кнопка массового исцеления
   const massHealBtn = app.querySelector('#mass-heal-btn');
   if (massHealBtn) massHealBtn.addEventListener('click', () => {
-    showEditModal({
-      title: 'Исцелить (всех выделенных) на:',
-      value: 1,
-      type: 'number',
-      onSubmit: (val) => {
-        const heal = parseInt(val, 10);
-        if (!isNaN(heal) && heal > 0) {
-          massHeal(heal);
-          renderCombatants();
-        }
-      }
-    });
+    showMassDamageModal('heal');
   });
 
   // Кнопка массового инвентаря
@@ -1026,17 +1036,28 @@ function renderCombatants() {
   const massInspBtn = app.querySelector('#mass-insp-btn');
   if (massInspBtn) massInspBtn.addEventListener('click', showMassInspirationModal);
 
-  // Кнопка выделить всех
-  const selAllBtn = app.querySelector('#select-all-btn');
-  if (selAllBtn) selAllBtn.addEventListener('click', () => {
-    selectAll();
+  // Кнопка переключения темы
+  const themeBtn = app.querySelector('#theme-toggle-btn');
+  if (themeBtn) themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-theme');
     renderCombatants();
   });
 
-  // Кнопка снять выделение
-  const clearSelBtn = app.querySelector('#clear-selection-btn');
-  if (clearSelBtn) clearSelBtn.addEventListener('click', () => {
-    clearSelection();
+  // Фильтр по типу
+  const filterType = app.querySelector('#filter-type');
+  if (filterType) filterType.addEventListener('change', (e) => {
+    setFilter(e.target.value);
+    renderCombatants();
+  });
+
+  // Чекбокс выделить всех
+  const selectAllBox = app.querySelector('#select-all-checkbox');
+  if (selectAllBox) selectAllBox.addEventListener('change', () => {
+    if (selectAllBox.checked) {
+      selectAll();
+    } else {
+      clearSelection();
+    }
     renderCombatants();
   });
 
@@ -1048,626 +1069,151 @@ function renderCombatants() {
     });
   });
 
-  // Сортировка по клику на заголовок
-  app.querySelectorAll('.sortable').forEach(el => {
-    el.addEventListener('click', () => {
-      setSort(el.dataset.field);
+  // Кнопки удаления участника
+  app.querySelectorAll('.delete-btn').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const idx = Number(el.dataset.idx);
+      deleteCombatantRaw(idx);
       renderCombatants();
     });
   });
 
-  // Фильтрация по типу
-  const filterType = app.querySelector('#filter-type');
-  if (filterType) filterType.addEventListener('change', (e) => {
-    setFilter(e.target.value);
-    renderCombatants();
-  });
-
-  // Кнопки удаления
-  app.querySelectorAll('.delete-combatant-btn').forEach(el => {
+  // Кнопки редактирования участника
+  app.querySelectorAll('.edit-btn').forEach(el => {
     el.addEventListener('click', (e) => {
       const idx = Number(el.dataset.idx);
-      deleteCombatant(idx);
+      if (typeof editFullCombatant === 'function') {
+        editFullCombatant(idx);
+      } else {
+        // fallback: showFullEditModal
+        const c = getCombatants()[idx];
+        showFullEditModal({
+          initial: { ...c },
+          onSubmit: (data) => {
+            updateCombatant(idx, data);
+            renderCombatants();
+          }
+        });
+      }
     });
   });
 
-  // Кнопки редактирования
-  app.querySelectorAll('.edit-combatant-btn').forEach(el => {
-    el.addEventListener('click', (e) => {
-      const idx = Number(el.dataset.idx);
-      editFullCombatant(idx);
-    });
-  });
-
-  // Навешиваем обработчик только на имя (если нужно модалкой)
+  // Клик по имени для быстрого редактирования
   app.querySelectorAll('.cell-name').forEach(el => {
     el.addEventListener('click', () => editName(Number(el.dataset.idx)));
   });
-  // УБРАНО: обработчики на .cell-type, .cell-initiative, .cell-ac, .cell-hp, .cell-note
 
-  // Кнопки перехода хода
-  const nextBtn = app.querySelector('#next-turn-btn');
-  if (nextBtn) nextBtn.addEventListener('click', () => {
-    nextTurn();
-    renderCombatants();
-  });
-  const prevBtn = app.querySelector('#prev-turn-btn');
-  if (prevBtn) prevBtn.addEventListener('click', () => {
-    prevTurn();
-    renderCombatants();
-  });
-  const resetBtn = app.querySelector('#reset-turn-btn');
-  if (resetBtn) resetBtn.addEventListener('click', () => {
-    resetTurn();
-    renderCombatants();
+  // Клик по типу
+  app.querySelectorAll('.cell-type').forEach(el => {
+    el.addEventListener('click', () => editType(Number(el.dataset.idx)));
   });
 
-  const monstersBtn = app.querySelector('#monsters-btn');
-  if (monstersBtn) monstersBtn.addEventListener('click', showMonsterModal);
-
-  // === Drag&Drop для перестановки участников ===
-  let dragSrcIdx = null;
-  function handleDragStart(e) {
-    dragSrcIdx = Number(e.currentTarget.getAttribute('data-idx'));
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', dragSrcIdx);
-    e.currentTarget.style.opacity = '0.5';
-  }
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }
-  function handleDrop(e) {
-    e.preventDefault();
-    const targetIdx = Number(e.currentTarget.getAttribute('data-idx'));
-    if (dragSrcIdx === null || targetIdx === dragSrcIdx) return;
-    const arr = getCombatants();
-    const moved = arr.splice(dragSrcIdx, 1)[0];
-    let insertIdx = targetIdx;
-    if (targetIdx > dragSrcIdx) insertIdx = targetIdx;
-    arr.splice(insertIdx, 0, moved);
-    renderCombatants();
-  }
-  function handleDragEnd(e) {
-    e.currentTarget.style.opacity = '';
-    dragSrcIdx = null;
-  }
-  // ... existing code ...
-  // В renderCombatants добавляю обработчики drag&drop на строки
-  // ... existing code ...
-  // Drag&Drop обработчики
-  app.querySelectorAll('tr[data-idx]').forEach(row => {
-    row.addEventListener('dragstart', handleDragStart);
-    row.addEventListener('dragover', handleDragOver);
-    row.addEventListener('drop', handleDrop);
-    row.addEventListener('dragend', handleDragEnd);
+  // Клик по инициативе
+  app.querySelectorAll('.cell-initiative').forEach(el => {
+    el.addEventListener('click', () => editInitiative(Number(el.dataset.idx)));
   });
 
-  // Обработчик для чекбокса выделения всех
-  setTimeout(() => {
-    const selectAllBox = document.getElementById('select-all-checkbox');
-    if (selectAllBox) {
-      selectAllBox.addEventListener('change', () => {
-        if (selectAllBox.checked) {
-          selectAll();
-        } else {
-          clearSelection();
-        }
-        renderCombatants();
-      });
-    }
-    // --- Drag-resize для столбцов ---
-    document.querySelectorAll('.resizer').forEach(resizer => {
-      let startX, startWidth, th, idx;
-      resizer.addEventListener('mousedown', function(e) {
-        th = resizer.parentElement;
-        idx = +resizer.dataset.idx;
-        startX = e.pageX;
-        startWidth = th.offsetWidth;
-        document.body.style.cursor = 'col-resize';
-        function onMove(ev) {
-          const delta = ev.pageX - startX;
-          const newWidth = Math.max(48, startWidth + delta);
-          th.style.width = newWidth + 'px';
-          window._colWidths[idx] = newWidth;
-        }
-        function onUp() {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          document.body.style.cursor = '';
-        }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    });
-  }, 0);
+  // Клик по КД
+  app.querySelectorAll('.cell-ac').forEach(el => {
+    el.addEventListener('click', () => editAC(Number(el.dataset.idx)));
+  });
 
-  // Инлайн-редактирование
-  app.querySelectorAll('.cell-type, .cell-initiative, .cell-ac, .cell-hp, .cell-note').forEach(el => {
+  // Клик по хп
+  app.querySelectorAll('.cell-hp').forEach(el => {
+    el.addEventListener('click', () => editHP(Number(el.dataset.idx)));
+  });
+
+  // Клик по заметке
+  app.querySelectorAll('.cell-note').forEach(el => {
+    el.addEventListener('click', () => editNote(Number(el.dataset.idx)));
+  });
+
+  // --- Здесь можно добавить обработчики для инвентаря, эффектов и т.д. ---
+
+  // Кнопки добавления/удаления эффектов
+  app.querySelectorAll('.effect-add').forEach(el => {
     el.addEventListener('click', () => {
-      window._editingCell = { row: Number(el.dataset.idx), col: el.className.replace('cell-','') };
-      renderCombatants();
-    });
-  });
-  app.querySelectorAll('.inline-edit').forEach(input => {
-    input.focus();
-    input.addEventListener('blur', saveInlineEdit);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        saveInlineEdit.call(input);
-      } else if (e.key === 'Escape') {
-        window._editingCell = null;
-        renderCombatants();
-      }
-    });
-  });
-  function saveInlineEdit() {
-    const idx = Number(this.dataset.idx);
-    const col = this.dataset.col;
-    const val = this.value;
-    const c = getCombatants()[idx];
-    if (col === 'initiative' || col === 'ac' || col === 'hp') {
-      c[col] = Number(val);
-    } else if (col === 'type') {
-      c.type = val;
-    } else if (col === 'note') {
-      c.note = val;
-    }
-    // Плавное исчезновение input/select
-    const el = this;
-    el.classList.add('removing');
-    setTimeout(() => {
-      window._editingCell = null;
-      renderCombatants();
-    }, 180); // Длительность inlineFadeOut
-  }
-}
-
-// === Панель кубиков ===
-let diceHistory = [];
-function renderDicePanel() {
-  let html = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-    ${[4,6,8,10,12,20,100].map(s => `<button class="icon-btn dice-btn tooltip" data-tooltip="Бросить d${s}" data-sides="${s}" style="padding:8px 14px;border-radius:10px;background:#f4f4f7;border:none;font-size:1.1em;box-shadow:0 1px 4px #0001;cursor:pointer;transition:background 0.2s;">d${s}</button>`).join('')}
-  </div>`;
-  html += `<div style='display:flex;align-items:center;gap:10px;margin-bottom:18px;'>
-    <div id="dice-history" style="font-size:1.08em;min-height:1.5em;">
-      ${diceHistory.slice(0, 6).map(e => `<div class="fade-in">${e}</div>`).join('')}
-    </div>
-    <button class="icon-btn tooltip" data-tooltip="Очистить историю" id="clear-dice-history-btn" style="margin-left:8px;padding:6px 12px;border-radius:8px;background:#fff0f0;border:1px solid #ffd0d0;color:#e53935;font-size:1em;">Очистить</button>
-  </div>`;
-  const panel = document.getElementById('dice-panel');
-  if (panel) panel.innerHTML = html;
-}
-window.clearDiceHistory = function() { diceHistory = []; renderDicePanel(); };
-function rollDice(sides, count = 1, mod = 0, participantName = null) {
-  let rolls = [];
-  for (let i = 0; i < count; ++i) rolls.push(Math.floor(Math.random() * sides) + 1);
-  const total = rolls.reduce((a, b) => a + b, 0) + mod;
-  let who = participantName ? `<b>${participantName}</b>: ` : '';
-  let result = `${who}${count > 1 ? count + 'd' + sides : 'd' + sides}${mod ? (mod > 0 ? '+' + mod : mod) : ''} → <b>${total}</b> (${rolls.join('+')}${mod ? (mod > 0 ? '+' + mod : mod) : ''})`;
-  diceHistory.unshift(result);
-  if (diceHistory.length > 10) diceHistory.length = 10;
-  renderDicePanel();
-  return { rolls, total };
-}
-window.rollDiceModal = function(sides) {
-  const res = rollDice(sides);
-  // Можно добавить анимацию/уведомление
-};
-
-// --- Обработчики для кнопок инвентаря ---
-document.addEventListener('click', function(e) {
-  // Добавить предмет
-  if (e.target.classList.contains('add-inventory-btn')) {
-    const idx = Number(e.target.dataset.idx);
-    showInventoryItemModal({
-      initial: { isNew: true },
-      onSubmit: (item) => {
-        const combatants = getCombatants();
-        if (!combatants[idx].inventory) combatants[idx].inventory = [];
-        combatants[idx].inventory.push(item);
-        renderCombatants();
-      }
-    });
-  }
-  // Редактировать предмет
-  if (e.target.classList.contains('chip-edit')) {
-    const idx = Number(e.target.dataset.idx);
-    const itemIdx = Number(e.target.dataset.item);
-    const combatants = getCombatants();
-    const item = combatants[idx].inventory[itemIdx];
-    showInventoryItemModal({
-      initial: { ...item, isNew: false },
-      onSubmit: (newItem) => {
-        combatants[idx].inventory[itemIdx] = newItem;
-        renderCombatants();
-      }
-    });
-  }
-  // Удалить предмет
-  if (e.target.classList.contains('chip-remove')) {
-    const idx = Number(e.target.dataset.idx);
-    const itemIdx = Number(e.target.dataset.item);
-    const combatants = getCombatants();
-    combatants[idx].inventory.splice(itemIdx, 1);
-    renderCombatants();
-  }
-  // Добавить эффект (делегирование через closest)
-  const addEffBtn = e.target.closest('.effect-add');
-  if (addEffBtn) {
-    const idx = Number(addEffBtn.dataset.idx);
-    const combatants = getCombatants();
-    if (!combatants[idx].effects) combatants[idx].effects = [];
-    showEffectModal({
-      onSubmit: ({ name, duration }) => {
-        combatants[idx].effects.push({ name, duration });
-        renderCombatants();
-      }
-    });
-    return;
-  }
-  // Удалить эффект (делегирование через closest)
-  const remEffBtn = e.target.closest('.effect-remove');
-  if (remEffBtn) {
-    const idx = Number(remEffBtn.dataset.idx);
-    const eff = Number(remEffBtn.dataset.eff);
-    const combatants = getCombatants();
-    if (combatants[idx].effects) combatants[idx].effects.splice(eff, 1);
-    renderCombatants();
-    return;
-  }
-  // Вдохновение (делегирование через closest)
-  const inspBtn = e.target.closest('.inspiration-btn');
-  if (inspBtn) {
-    const idx = Number(inspBtn.dataset.idx);
-    const combatants = getCombatants();
-    combatants[idx].inspiration = !combatants[idx].inspiration;
-    renderCombatants();
-    return;
-  }
-  // Слоты/Ресурсы (делегирование через closest)
-  const slotsBtn = e.target.closest('.spellslots-btn');
-  if (slotsBtn) {
-    const idx = Number(slotsBtn.dataset.idx);
-    const combatants = getCombatants();
-    showSpellSlotsModal({
-      combatant: combatants[idx],
-      onSubmit: ({spellSlots,resources}) => {
-        combatants[idx].spellSlots = spellSlots;
-        combatants[idx].resources = resources;
-        renderCombatants();
-      }
-    });
-    return;
-  }
-});
-
-function renderMassDamageBtn() {
-  const panel = document.getElementById('mass-panel');
-  if (!panel) return;
-  let btn = document.getElementById('mass-damage-btn');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.id = 'mass-damage-btn';
-    btn.textContent = 'Массовый урон/исцеление';
-    btn.style = 'padding:8px 18px;border-radius:10px;background:#f4f4f7;color:#23272f;border:none;cursor:pointer;font-size:1em;';
-    panel.appendChild(btn);
-  }
-  btn.onclick = () => showMassDamageModal();
-}
-
-// === Контекстное меню для участника ===
-let contextMenuEl = null;
-function showContextMenu(x, y, idx) {
-  hideContextMenu();
-  contextMenuEl = document.createElement('div');
-  contextMenuEl.className = 'context-menu';
-  contextMenuEl.style = `position:fixed;left:${x}px;top:${y}px;z-index:10010;background:#fff;border-radius:14px;box-shadow:0 4px 24px #0002;padding:8px 0;min-width:180px;animation:fadeIn 0.2s;`;
-  contextMenuEl.innerHTML = `
-    <button class="ctx-btn" data-action="edit" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">✏️ Редактировать</button>
-    <button class="ctx-btn" data-action="delete" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">🗑️ Удалить</button>
-    <button class="ctx-btn" data-action="damage" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">💥 Урон</button>
-    <button class="ctx-btn" data-action="heal" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">💚 Исцеление</button>
-    <button class="ctx-btn" data-action="inspiration" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">⭐ Вдохновение</button>
-    <button class="ctx-btn" data-action="effects" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">✨ Эффекты</button>
-  `;
-  document.body.appendChild(contextMenuEl);
-  // Обработчики
-  contextMenuEl.querySelectorAll('.ctx-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const action = btn.getAttribute('data-action');
-      hideContextMenu();
-      if (action === 'edit') editFullCombatant(idx);
-      if (action === 'delete') deleteCombatant(idx);
-      if (action === 'damage') showDamageModal(idx);
-      if (action === 'heal') {
-        showDamageModal(idx);
-        setTimeout(() => {
-          const modal = document.getElementById('damage-modal');
-          if (modal) modal.querySelector('#dmg-type').value = 'heal';
-        }, 50);
-      }
-      if (action === 'inspiration') {
-        const c = getCombatants()[idx];
-        if (c) { c.inspiration = !c.inspiration; renderCombatants(); }
-      }
-      if (action === 'effects') alert('Быстрые эффекты пока не реализованы');
-    });
-  });
-  // Закрытие по клику вне меню
-  setTimeout(() => {
-    document.addEventListener('mousedown', hideContextMenu, { once: true });
-  }, 0);
-}
-function hideContextMenu() {
-  if (contextMenuEl) {
-    contextMenuEl.remove();
-    contextMenuEl = null;
-  }
-}
-
-// Добавляю обработчик правого клика на строке участника
-function addContextMenuHandlers() {
-  document.querySelectorAll('tr[data-idx]').forEach(row => {
-    row.addEventListener('contextmenu', function(e) {
-      e.preventDefault();
-      const idx = parseInt(row.getAttribute('data-idx'), 10);
-      showContextMenu(e.clientX, e.clientY, idx);
-    });
-  });
-}
-
-function renderMassInspBtn() {
-  const panel = document.getElementById('mass-panel');
-  if (!panel) return;
-  let btn = document.getElementById('mass-insp-btn');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.id = 'mass-insp-btn';
-    btn.textContent = 'Массовое вдохновение';
-    btn.style = 'padding:8px 18px;border-radius:10px;background:#f4f4f7;color:#23272f;border:none;cursor:pointer;font-size:1em;';
-    panel.appendChild(btn);
-  }
-  btn.onclick = () => showMassInspirationModal();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  renderCombatants();
-  const dicePanel = document.createElement('div');
-  dicePanel.id = 'dice-panel';
-  dicePanel.style.margin = '18px 0 0 0';
-  const app = document.getElementById('app');
-  if (app) app.parentNode.insertBefore(dicePanel, app.nextSibling);
-  renderDicePanel();
-  // Делегирование событий для панели кубиков
-  dicePanel.addEventListener('click', function(e) {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    if (btn.classList.contains('dice-btn')) {
-      const sides = parseInt(btn.getAttribute('data-sides'), 10);
-      if (sides) rollDice(sides);
-    }
-    if (btn.id === 'clear-dice-history-btn') {
-      diceHistory = [];
-      renderDicePanel();
-    }
-  });
-  // Делегирование событий для кнопок урона/исцеления
-  app.querySelectorAll('.dmg-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const idx = parseInt(btn.getAttribute('data-idx'), 10);
-      showDamageModal(idx);
-    });
-  });
-  renderMassDamageBtn();
-  renderMassInspBtn();
-  addContextMenuHandlers(); // Добавляю обработчики для контекстного меню
-});
-
-// Горячие клавиши Ctrl+D и Ctrl+H
-window.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-    e.preventDefault();
-    showMassDamageModal('damage');
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
-    e.preventDefault();
-    showMassDamageModal('heal');
-  }
-});
-// Горячая клавиша Ctrl+I
-window.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-    e.preventDefault();
-    showMassInspirationModal();
-  }
-});
-
-// --- Модалка подробной информации о предмете инвентаря ---
-function showInventoryItemInfoModal(item) {
-  const oldModal = document.getElementById('inventory-item-info-modal');
-  if (oldModal) oldModal.remove();
-  const modal = document.createElement('div');
-  modal.id = 'inventory-item-info-modal';
-  modal.style.position = 'fixed';
-  modal.style.top = '0';
-  modal.style.left = '0';
-  modal.style.width = '100vw';
-  modal.style.height = '100vh';
-  modal.style.background = 'rgba(0,0,0,0.25)';
-  modal.style.display = 'flex';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-  modal.style.zIndex = '9999';
-
-  // Поиск оригинального объекта в справочниках
-  let ref = allItems.find(i => (i.name||i.ru?.name||i.en?.name||'').toLowerCase() === (item.name||'').toLowerCase())
-    || allSpells.find(i => (i.name||i.ru?.name||i.en?.name||'').toLowerCase() === (item.name||'').toLowerCase())
-    || allArtifacts.find(i => (i.name||i.ru?.name||i.en?.name||'').toLowerCase() === (item.name||'').toLowerCase());
-  if (!ref) ref = item; // fallback: показываем то, что есть
-
-  modal.innerHTML = `
-    <div style="background:#fff;padding:28px 24px 20px 24px;border-radius:18px;min-width:340px;max-width:96vw;max-height:90vh;overflow:auto;position:relative;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:12px;">
-      <button id="close-inventory-item-info-modal" style="position:absolute;top:10px;right:14px;font-size:1.3em;background:none;border:none;cursor:pointer;">×</button>
-      <div style='font-size:1.2em;font-weight:600;margin-bottom:8px;'>${ref.name||ref.ru?.name||ref.en?.name||'-'}</div>
-      <div style='font-size:1em;color:#888;margin-bottom:6px;'>${ref.type||ref.ru?.type||ref.en?.type||''}</div>
-      <div style='font-size:1em;color:#888;margin-bottom:6px;'>${ref.desc||ref.ru?.text||ref.en?.text||''}</div>
-      ${ref.weight?`<div style='color:#888;margin-bottom:6px;'>Вес: ${ref.weight}кг</div>`:''}
-      ${ref.cost?`<div style='color:#888;margin-bottom:6px;'>Стоимость: ${ref.cost}зм</div>`:''}
-      ${ref.rarity?`<div style='color:#888;margin-bottom:6px;'>Редкость: ${ref.rarity}</div>`:''}
-      ${ref.source?`<div style='color:#888;margin-bottom:6px;'>Источник: ${ref.source}</div>`:''}
-    </div>
-  `;
-  document.body.appendChild(modal);
-  document.getElementById('close-inventory-item-info-modal').onclick = () => modal.remove();
-}
-
-// --- Обработчик правого клика по предмету инвентаря ---
-document.addEventListener('contextmenu', function(e) {
-  const chip = e.target.closest('.chip');
-  if (chip) {
-    e.preventDefault();
-    const tr = chip.closest('tr[data-idx]');
-    const idx = tr ? Number(tr.getAttribute('data-idx')) : null;
-    const itemIdx = chip.querySelector('.chip-edit')?.dataset.item;
-    if (idx !== null && itemIdx !== undefined) {
-      // Показываем простое контекстное меню
-      const menu = document.createElement('div');
-      menu.className = 'context-menu';
-      menu.style = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:10010;background:#fff;border-radius:14px;box-shadow:0 4px 24px #0002;padding:8px 0;min-width:160px;animation:fadeIn 0.2s;`;
-      menu.innerHTML = `
-        <button class="ctx-btn" data-action="info" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">ℹ️ Инфо</button>
-        <button class="ctx-btn" data-action="edit" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">✏️ Редактировать</button>
-        <button class="ctx-btn" data-action="remove" style="width:100%;padding:10px 18px;text-align:left;border:none;background:none;font-size:1em;cursor:pointer;">🗑️ Удалить</button>
-      `;
-      document.body.appendChild(menu);
-      // Обработчики
-      menu.querySelectorAll('.ctx-btn').forEach(btn => {
-        btn.onclick = function() {
-          menu.remove();
-          const combatants = getCombatants();
-          const item = combatants[idx].inventory[itemIdx];
-          if (btn.dataset.action === 'info') showInventoryItemInfoModal(item);
-          if (btn.dataset.action === 'edit') showInventoryItemModal({ initial: { ...item, isNew: false }, onSubmit: (newItem) => { combatants[idx].inventory[itemIdx] = newItem; renderCombatants(); } });
-          if (btn.dataset.action === 'remove') { combatants[idx].inventory.splice(itemIdx, 1); renderCombatants(); }
-        };
+      const idx = Number(el.dataset.idx);
+      const combatants = getCombatants();
+      if (!combatants[idx].effects) combatants[idx].effects = [];
+      showEditModal({
+        title: 'Добавить эффект',
+        value: '',
+        onSubmit: (val) => {
+          if (val) {
+            combatants[idx].effects.push({ name: val });
+            renderCombatants();
+          }
+        }
       });
-      // Закрытие по клику вне меню
-      setTimeout(() => {
-        document.addEventListener('mousedown', function handler(ev) {
-          if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', handler); }
-        }, { once: true });
-      }, 0);
-    }
-  }
-});
-
-function showEffectModal({onSubmit, onCancel}) {
-  const oldModal = document.getElementById('effect-modal');
-  if (oldModal) oldModal.remove();
-  const modal = document.createElement('div');
-  modal.id = 'effect-modal';
-  modal.style.position = 'fixed';
-  modal.style.top = '0';
-  modal.style.left = '0';
-  modal.style.width = '100vw';
-  modal.style.height = '100vh';
-  modal.style.background = 'rgba(0,0,0,0.25)';
-  modal.style.display = 'flex';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-  modal.style.zIndex = '9999';
-  modal.innerHTML = `
-    <div style="background:#fff;padding:24px 20px;border-radius:16px;min-width:320px;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:14px;">
-      <div style="font-size:1.1em;font-weight:500;margin-bottom:4px;">Добавить эффект</div>
-      <input id="effect-name" type="text" placeholder="Название эффекта" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" autofocus />
-      <input id="effect-duration" type="text" placeholder="Длительность (опционально)" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
-      <div style="display:flex;gap:12px;justify-content:flex-end;">
-        <button id="effect-cancel" style="padding:7px 18px;border-radius:8px;border:none;background:#e5e5ea;cursor:pointer;">Отмена</button>
-        <button id="effect-ok" style="padding:7px 18px;border-radius:8px;border:none;background:#007aff;color:#fff;cursor:pointer;">OK</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  const nameInput = modal.querySelector('#effect-name');
-  nameInput.focus();
-  nameInput.select();
-  function close() { modal.remove(); if (onCancel) onCancel(); }
-  modal.querySelector('#effect-cancel').onclick = close;
-  modal.querySelector('#effect-ok').onclick = () => {
-    const name = nameInput.value.trim();
-    const duration = modal.querySelector('#effect-duration').value.trim();
-    if (name) { onSubmit({ name, duration }); close(); }
-    else nameInput.focus();
-  };
-  nameInput.onkeydown = (e) => {
-    if (e.key === 'Enter') modal.querySelector('#effect-ok').click();
-    if (e.key === 'Escape') close();
-  };
-}
-
-function showSpellSlotsModal({combatant, onSubmit, onCancel}) {
-  const oldModal = document.getElementById('spellslots-modal');
-  if (oldModal) oldModal.remove();
-  const modal = document.createElement('div');
-  modal.id = 'spellslots-modal';
-  modal.style.position = 'fixed';
-  modal.style.top = '0';
-  modal.style.left = '0';
-  modal.style.width = '100vw';
-  modal.style.height = '100vh';
-  modal.style.background = 'rgba(0,0,0,0.25)';
-  modal.style.display = 'flex';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-  modal.style.zIndex = '9999';
-  const slots = (combatant.spellSlots||[null,null,null,null,null,null,null,null,null]).slice(0,9);
-  const resources = (combatant.resources||[]).slice();
-  modal.innerHTML = `
-    <div style="background:#fff;padding:24px 20px;border-radius:16px;min-width:340px;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:14px;">
-      <div style="font-size:1.1em;font-weight:500;margin-bottom:4px;">Слоты заклинаний и ресурсы</div>
-      <div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;'>
-        ${slots.map((val,idx)=>`<div style='display:flex;flex-direction:column;align-items:center;'><span style='font-size:0.98em;color:#888;'>${idx+1}</span><input type='number' min='0' max='99' value='${val!=null?val:''}' data-slot='${idx}' style='width:38px;padding:4px 6px;border-radius:7px;border:1.5px solid #e5e5ea;text-align:center;font-size:1em;'></div>`).join('')}
-      </div>
-      <div style='font-size:1em;font-weight:500;margin:8px 0 2px 0;'>Ресурсы</div>
-      <div id='resources-list' style='display:flex;flex-direction:column;gap:6px;'>
-        ${resources.map((r,ri)=>`<div style='display:flex;gap:6px;align-items:center;'><input type='text' value='${r.name||''}' placeholder='Название' data-resname='${ri}' style='width:90px;padding:4px 8px;border-radius:7px;border:1.5px solid #e5e5ea;font-size:1em;'><input type='number' value='${r.value||0}' min='0' max='99' data-resval='${ri}' style='width:44px;padding:4px 6px;border-radius:7px;border:1.5px solid #e5e5ea;text-align:center;font-size:1em;'><button class='res-del' data-resdel='${ri}' style='background:#eee;color:#c00;border:none;border-radius:6px;padding:2px 6px;cursor:pointer;'>×</button></div>`).join('')}
-      </div>
-      <button id='add-resource' style='margin:6px 0 0 0;padding:6px 14px;border-radius:8px;background:#e5e5ea;color:#222;border:none;cursor:pointer;'>+ Ресурс</button>
-      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:10px;">
-        <button id="spellslots-cancel" style="padding:7px 18px;border-radius:8px;border:none;background:#e5e5ea;cursor:pointer;">Отмена</button>
-        <button id="spellslots-ok" style="padding:7px 18px;border-radius:8px;border:none;background:#007aff;color:#fff;cursor:pointer;">OK</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  // Логика
-  modal.querySelector('#add-resource').onclick = () => {
-    resources.push({name:'',value:0});
-    modal.remove();
-    showSpellSlotsModal({combatant:{...combatant,spellSlots:slots,resources},onSubmit,onCancel});
-  };
-  modal.querySelectorAll('.res-del').forEach(btn=>{
-    btn.onclick = () => {
-      const idx = Number(btn.dataset.resdel);
-      resources.splice(idx,1);
-      modal.remove();
-      showSpellSlotsModal({combatant:{...combatant,spellSlots:slots,resources},onSubmit,onCancel});
-    };
-  });
-  function close() { modal.remove(); if(onCancel) onCancel(); }
-  modal.querySelector('#spellslots-cancel').onclick = close;
-  modal.querySelector('#spellslots-ok').onclick = () => {
-    // Собираем значения
-    const newSlots = Array.from(modal.querySelectorAll('input[data-slot]')).map(inp=>{
-      const v = inp.value.trim();
-      return v===''?null:Number(v);
     });
-    const newResources = Array.from(modal.querySelectorAll('input[data-resname]')).map((inp,ri)=>({
-      name: inp.value.trim(),
-      value: Number(modal.querySelector(`input[data-resval="${ri}"]`).value)
-    })).filter(r=>r.name);
-    onSubmit({spellSlots:newSlots,resources:newResources});
-    close();
-  };
+  });
+  app.querySelectorAll('.effect-remove').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx);
+      const eff = Number(el.dataset.eff);
+      const combatants = getCombatants();
+      if (combatants[idx].effects) combatants[idx].effects.splice(eff, 1);
+      renderCombatants();
+    });
+  });
+
+  // Кнопка вдохновения
+  app.querySelectorAll('.inspiration-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx);
+      const combatants = getCombatants();
+      combatants[idx].inspiration = !combatants[idx].inspiration;
+      renderCombatants();
+    });
+  });
+
+  // Кнопка добавления слота/ресурса
+  app.querySelectorAll('.spell-slot-add').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx);
+      const combatants = getCombatants();
+      if (!combatants[idx].spellSlots) combatants[idx].spellSlots = [];
+      showEditModal({
+        title: 'Название слота/ресурса',
+        value: '',
+        onSubmit: (val) => {
+          if (val) {
+            combatants[idx].spellSlots.push({ name: val, value: 1 });
+            renderCombatants();
+          }
+        }
+      });
+    });
+  });
+
+  // Кнопка добавления предмета инвентаря
+  app.querySelectorAll('.inventory-item-add').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.idx);
+      const combatants = getCombatants();
+      if (!combatants[idx].inventory) combatants[idx].inventory = [];
+      showEditModal({
+        title: 'Название предмета',
+        value: '',
+        onSubmit: (val) => {
+          if (val) {
+            combatants[idx].inventory.push({ name: val, qty: 1 });
+            renderCombatants();
+          }
+        }
+      });
+    });
+  });
+
+  // Исправляю массовое исцеление и урон
+  if (massDmgBtn) massDmgBtn.addEventListener('click', () => {
+    showMassDamageModal('damage');
+  });
+  if (massHealBtn) massHealBtn.addEventListener('click', () => {
+    showMassDamageModal('heal');
+  });
 }
+
+// Рендерим интерфейс при запуске
+renderCombatants();
