@@ -1,5 +1,3 @@
-
-
 import {
   getCombatants,
   addCombatant as addCombatantRaw,
@@ -790,7 +788,23 @@ function showMassInspirationModal() {
   };
 }
 
-// Обновлённый рендер с интерактивностью
+// SVG-иконки для кнопок
+const icons = {
+  add: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="3" width="2" height="14" rx="1" fill="currentColor"/><rect x="3" y="9" width="14" height="2" rx="1" fill="currentColor"/></svg>`,
+  monster: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><ellipse cx="10" cy="13" rx="4" ry="2" fill="currentColor"/><circle cx="7" cy="9" r="1" fill="#fff"/><circle cx="13" cy="9" r="1" fill="#fff"/></svg>`,
+  ref: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="12" height="12" rx="3" stroke="currentColor" stroke-width="2"/><rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor"/></svg>`,
+  delete: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="6" width="10" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9v4M12 9v4" stroke="currentColor" stroke-width="2"/><path d="M8 6V4h4v2" stroke="currentColor" stroke-width="2"/></svg>`,
+  damage: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 6v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  heal: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 7v6M7 10h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  inventory: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="7" width="12" height="7" rx="2" stroke="currentColor" stroke-width="2"/><rect x="7" y="4" width="6" height="3" rx="1" fill="currentColor"/></svg>`,
+  insp: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 6v4l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  selectAll: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="12" height="12" rx="3" stroke="currentColor" stroke-width="2"/><path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  clear: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  prev: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 15l-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  next: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 5l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  reset: `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 6v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`
+};
+
 function renderCombatants() {
   const app = document.getElementById('app');
   if (!app) return;
@@ -800,49 +814,123 @@ function renderCombatants() {
   const filter = getFilter();
   const currentIdx = getCurrentIdx();
   const round = getRound();
-  let html = `<div style="margin-bottom:16px;display:flex;gap:12px;align-items:center;">
-    <button id="add-combatant-btn" style="padding:8px 18px;border-radius:10px;background:#007aff;color:#fff;border:none;cursor:pointer;font-size:1em;">+ Добавить участника</button>
-    <button id="add-monster-btn" style="padding:8px 18px;border-radius:10px;background:#23272f;color:#fff;border:none;cursor:pointer;font-size:1em;">+ Монстр</button>
-    <button id="reference-btn" style="padding:8px 18px;border-radius:10px;background:#f6f7f9;color:#23272f;border:1.5px solid #e5e5ea;cursor:pointer;font-size:1em;">Справочник</button>
-    <button id="delete-selected-btn" style="padding:8px 18px;border-radius:10px;background:#e74c3c;color:#fff;border:none;cursor:pointer;font-size:1em;">Удалить выделенных</button>
-    <button id="mass-damage-btn" style="padding:8px 18px;border-radius:10px;background:#e67e22;color:#fff;border:none;cursor:pointer;font-size:1em;">Массовый урон</button>
-    <button id="mass-heal-btn" style="padding:8px 18px;border-radius:10px;background:#27ae60;color:#fff;border:none;cursor:pointer;font-size:1em;">Массовое исцеление</button>
-    <button id="mass-inventory-btn" style="padding:8px 18px;border-radius:10px;background:#bbb;color:#fff;border:none;cursor:pointer;font-size:1em;">Массовый инвентарь</button>
-    <button id="mass-insp-btn" style="padding:8px 18px;border-radius:10px;background:#f4f4f7;color:#23272f;border:1.5px solid #e5e5ea;cursor:pointer;font-size:1em;">Массовое вдохновение</button>
-    <button id="select-all-btn" style="padding:8px 18px;border-radius:10px;background:#888;color:#fff;border:none;cursor:pointer;font-size:1em;">Выделить всех</button>
-    <button id="clear-selection-btn" style="padding:8px 18px;border-radius:10px;background:#bbb;color:#fff;border:none;cursor:pointer;font-size:1em;">Снять выделение</button>
-    <select id="filter-type" style="padding:8px 12px;border-radius:8px;font-size:1em;">
-      ${typeOptions.map(opt => `<option value="${opt.value}"${filter === opt.value ? ' selected' : ''}>${opt.label}</option>`).join('')}
+
+  // --- Новая панель навигации ---
+  let navHtml = `<div class="nav-wrapper"><nav class="main-nav" style="position:sticky;top:0;z-index:10;background:var(--main-bg);padding:10px 0 6px 0;box-shadow:0 2px 8px #0001;display:flex;flex-wrap:wrap;gap:10px;align-items:center;backdrop-filter:blur(6px);">
+    <button id="add-combatant-btn" class="nav-btn accent">${icons.add} <span>Добавить</span></button>
+    <button id="add-monster-btn" class="nav-btn">${icons.monster} <span>Монстр</span></button>
+    <button id="reference-btn" class="nav-btn">${icons.ref} <span>Справочник</span></button>
+    <div class="nav-group">
+      <button id="delete-selected-btn" class="nav-btn">${icons.delete} <span>Удалить</span></button>
+      <button id="mass-damage-btn" class="nav-btn">${icons.damage} <span>Урон</span></button>
+      <button id="mass-heal-btn" class="nav-btn">${icons.heal} <span>Исцеление</span></button>
+      <button id="mass-inventory-btn" class="nav-btn">${icons.inventory} <span>Инвентарь</span></button>
+      <button id="mass-insp-btn" class="nav-btn">${icons.insp} <span>Вдохновение</span></button>
+    </div>
+    <select id="filter-type" class="nav-select">
+      <option value="all">Все типы</option>
+      <option value="pc">PC</option>
+      <option value="npc">NPC</option>
+      <option value="monster">Monster</option>
     </select>
-    <span style="margin-left:32px;font-weight:500;">Раунд: <span id="round-num">${round}</span></span>
-    <button id="prev-turn-btn" style="padding:8px 14px;border-radius:8px;background:#bbb;color:#fff;border:none;cursor:pointer;">&lt; Предыдущий ход</button>
-    <button id="next-turn-btn" style="padding:8px 14px;border-radius:8px;background:#007aff;color:#fff;border:none;cursor:pointer;">Следующий ход &gt;</button>
-    <button id="reset-turn-btn" style="padding:8px 14px;border-radius:8px;background:#888;color:#fff;border:none;cursor:pointer;">Сбросить раунд</button>
-  </div>`;
-  html += `<table style="width:100%;border-collapse:collapse;">
-    <thead><tr>
-      <th></th>
-      <th class="sortable" data-field="name" style="cursor:pointer;">Имя${sort.field === 'name' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-      <th class="sortable" data-field="type" style="cursor:pointer;">Тип${sort.field === 'type' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-      <th class="sortable" data-field="initiative" style="cursor:pointer;">Инициатива${sort.field === 'initiative' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-      <th class="sortable" data-field="ac" style="cursor:pointer;">КД${sort.field === 'ac' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-      <th class="sortable" data-field="hp" style="cursor:pointer;">Хиты${sort.field === 'hp' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-      <th>Заметка</th>
-      <th>Инвентарь</th>
-      <th></th><th></th>
-    </tr></thead>
-    <tbody>`;
+    <span style="margin-left:24px;font-weight:500;">Раунд: <span id="round-num">${round}</span></span>
+    <span style="margin-left:18px;font-weight:500;">Ход: <span id="turn-num">${currentIdx+1}/${combatants.length}</span></span>
+    <button id="prev-turn-btn" class="nav-btn">${icons.prev}</button>
+    <button id="next-turn-btn" class="nav-btn accent">${icons.next}</button>
+    <button id="reset-turn-btn" class="nav-btn">${icons.reset}</button>
+  </nav></div>`;
+
+  let html = navHtml;
+  // --- Таблица с чекбоксом в заголовке и resizer-ручками ---
+  const allSelected = combatants.length > 0 && combatants.every((_, i) => selected.has(i));
+  const columns = [
+    { key: '', label: '', resizable: false },
+    { key: 'name', label: 'Имя', resizable: true },
+    { key: 'type', label: 'Тип', resizable: true },
+    { key: 'initiative', label: 'Инициатива', resizable: true },
+    { key: 'ac', label: 'КД', resizable: true },
+    { key: 'hp', label: 'Хиты', resizable: true },
+    { key: 'effects', label: 'Эффекты', resizable: true },
+    { key: 'inspiration', label: 'Вдохновение', resizable: true },
+    { key: 'spellSlots', label: 'Слоты/Ресурсы', resizable: true },
+    { key: 'note', label: 'Заметка', resizable: true },
+    { key: 'inv', label: 'Инвентарь', resizable: true },
+    { key: '', label: '', resizable: false },
+    { key: '', label: '', resizable: false }
+  ];
+  // Сохраняем ширины в памяти (можно расширить до localStorage)
+  if (!window._colWidths) window._colWidths = {};
+  html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+    <thead><tr>`;
+  columns.forEach((col, idx) => {
+    let width = window._colWidths[idx] ? `width:${window._colWidths[idx]}px;` : '';
+    html += `<th style="${col.key === '' ? 'text-align:center;' : ''}${width}position:relative;">
+      ${idx === 0 ? `<div class='checkbox-center'><input type=\"checkbox\" id=\"select-all-checkbox\" style=\"width:22px;height:22px;cursor:pointer;accent-color:var(--accent);\" ${allSelected ? 'checked' : ''} /></div>` : ''}
+      ${col.label ? `<span class=\"th-label\">${col.label}${sort.field === col.key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>` : ''}
+      ${col.resizable && idx < columns.length - 1 ? `<div class=\"resizer\" data-idx=\"${idx}\"></div>` : ''}
+    </th>`;
+  });
+  html += `</tr></thead>`;
+  html += '<tbody>';
   for (let i = 0; i < combatants.length; i++) {
     const c = combatants[i];
-    html += `<tr data-idx="${i}" draggable="true">
-      <td><input type="checkbox" class="select-combatant" data-idx="${i}"${selected.has(i) ? ' checked' : ''}></td>
-      <td class="cell-name" data-idx="${i}" style="cursor:pointer">${c.name}</td>
-      <td class="cell-type" data-idx="${i}" style="cursor:pointer">${c.type}</td>
-      <td class="cell-initiative" data-idx="${i}" style="cursor:pointer">${c.initiative}</td>
-      <td class="cell-ac" data-idx="${i}" style="cursor:pointer">${c.ac}</td>
-      <td class="cell-hp" data-idx="${i}" style="cursor:pointer">${c.hp} <button class="dmg-btn" title="Урон/исцеление" data-idx="${i}" style="margin-left:6px;padding:2px 7px;border-radius:7px;background:#f4f4f7;border:none;cursor:pointer;font-size:1em;">💥</button></td>
-      <td class="cell-note" data-idx="${i}" style="cursor:pointer">${c.note ? c.note : ''}</td>
-      <td class="cell-inventory" data-idx="${i}">
+    const isEditing = window._editingCell || {};
+    const isActive = i === currentIdx;
+    html += `<tr data-idx="${i}" draggable="true"${isActive ? ' class="active-turn"' : ''}>`;
+    html += `<td style='text-align:center;'><div class='checkbox-center'><input type='checkbox' class='select-combatant' data-idx='${i}' ${selected.has(i) ? 'checked' : ''}></div></td>`;
+    // Имя (оставим как есть)
+    html += `<td class="cell-name" data-idx="${i}" style="cursor:pointer">${c.name}</td>`;
+    // Тип (select)
+    if (isEditing.row === i && isEditing.col === 'type') {
+      html += `<td><select class='inline-edit' data-idx='${i}' data-col='type' autofocus style='width:100%;font-size:1em;'>
+        <option value='pc' ${c.type==='pc'?'selected':''}>PC</option>
+        <option value='npc' ${c.type==='npc'?'selected':''}>NPC</option>
+        <option value='monster' ${c.type==='monster'?'selected':''}>Monster</option>
+      </select></td>`;
+    } else {
+      html += `<td class="cell-type" data-idx="${i}" style="cursor:pointer">${c.type}</td>`;
+    }
+    // Инициатива
+    if (isEditing.row === i && isEditing.col === 'initiative') {
+      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='initiative' value='${c.initiative}' autofocus style='width:100%;font-size:1em;'></td>`;
+    } else {
+      html += `<td class="cell-initiative" data-idx="${i}" style="cursor:pointer">${c.initiative}</td>`;
+    }
+    // КД
+    if (isEditing.row === i && isEditing.col === 'ac') {
+      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='ac' value='${c.ac}' autofocus style='width:100%;font-size:1em;'></td>`;
+    } else {
+      html += `<td class="cell-ac" data-idx="${i}" style="cursor:pointer">${c.ac}</td>`;
+    }
+    // Хиты
+    if (isEditing.row === i && isEditing.col === 'hp') {
+      html += `<td><input type='number' class='inline-edit' data-idx='${i}' data-col='hp' value='${c.hp}' autofocus style='width:100%;font-size:1em;'></td>`;
+    } else {
+      html += `<td class="cell-hp" data-idx="${i}" style="cursor:pointer">${c.hp}</td>`;
+    }
+    // Эффекты
+    html += `<td class="cell-effects" data-idx="${i}">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+        ${(c.effects||[]).map((eff, j) => `<span class='chip effect-chip' title='${eff.desc||''}' style='background:#b0bec5;color:#222;'>${eff.icon||'★'}${eff.name}${eff.duration?` <span style='color:#888;font-size:0.95em;'>(${eff.duration})</span>`:''}<button class='effect-remove' data-idx="${i}" data-eff="${j}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#c00;border:none;cursor:pointer;'>×</button></span>`).join('')}
+        <button class='effect-add' data-idx="${i}" style='margin-left:2px;padding:2px 6px;border-radius:6px;background:#eee;color:#222;border:none;cursor:pointer;'>+</button>
+      </div>
+    </td>`;
+    // Вдохновение
+    html += `<td class="cell-inspiration" data-idx="${i}" style="text-align:center;">
+      <button class="inspiration-btn${c.inspiration ? ' active' : ''}" data-idx="${i}" title="Вдохновение" style="background:none;border:none;cursor:pointer;font-size:1.25em;line-height:1;">${c.inspiration ? '⭐' : '☆'}</button>
+    </td>`;
+    // Слоты/Ресурсы
+    html += `<td class="cell-spellslots" data-idx="${i}" style="text-align:center;">
+      <button class="spellslots-btn" data-idx="${i}" title="Слоты заклинаний и ресурсы" style="background:none;border:none;cursor:pointer;font-size:1.18em;line-height:1;">🪄</button>
+      <span class="spellslots-summary" style="font-size:0.98em;color:#888;">${(c.spellSlots||[]).map((s,j)=>s!=null?`<span title='Слот ${j+1}'>${s}</span>`:'').join(' ')}${(c.resources||[]).map(r=>r.name?`<span title='${r.name}'>${r.value}</span>`:'').join(' ')}</span>
+    </td>`;
+    // Заметка
+    if (isEditing.row === i && isEditing.col === 'note') {
+      html += `<td><input type='text' class='inline-edit' data-idx='${i}' data-col='note' value='${c.note||''}' autofocus style='width:100%;font-size:1em;'></td>`;
+    } else {
+      html += `<td class="cell-note" data-idx="${i}" style="cursor:pointer">${c.note||''}</td>`;
+    }
+    html += `<td class="cell-inventory" data-idx="${i}">
         <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
           ${(c.inventory||[]).map((item, j) => {
             if (!item || typeof item !== 'object' || !item.name) return '';
@@ -991,25 +1079,11 @@ function renderCombatants() {
     });
   });
 
-  // Навешиваем обработчики событий на ячейки (оставляем для быстрого редактирования отдельных полей)
+  // Навешиваем обработчик только на имя (если нужно модалкой)
   app.querySelectorAll('.cell-name').forEach(el => {
     el.addEventListener('click', () => editName(Number(el.dataset.idx)));
   });
-  app.querySelectorAll('.cell-type').forEach(el => {
-    el.addEventListener('click', () => editType(Number(el.dataset.idx)));
-  });
-  app.querySelectorAll('.cell-initiative').forEach(el => {
-    el.addEventListener('click', () => editInitiative(Number(el.dataset.idx)));
-  });
-  app.querySelectorAll('.cell-ac').forEach(el => {
-    el.addEventListener('click', () => editAC(Number(el.dataset.idx)));
-  });
-  app.querySelectorAll('.cell-hp').forEach(el => {
-    el.addEventListener('click', () => editHP(Number(el.dataset.idx)));
-  });
-  app.querySelectorAll('.cell-note').forEach(el => {
-    el.addEventListener('click', () => editNote(Number(el.dataset.idx)));
-  });
+  // УБРАНО: обработчики на .cell-type, .cell-initiative, .cell-ac, .cell-hp, .cell-note
 
   // Кнопки перехода хода
   const nextBtn = app.querySelector('#next-turn-btn');
@@ -1068,6 +1142,85 @@ function renderCombatants() {
     row.addEventListener('drop', handleDrop);
     row.addEventListener('dragend', handleDragEnd);
   });
+
+  // Обработчик для чекбокса выделения всех
+  setTimeout(() => {
+    const selectAllBox = document.getElementById('select-all-checkbox');
+    if (selectAllBox) {
+      selectAllBox.addEventListener('change', () => {
+        if (selectAllBox.checked) {
+          selectAll();
+        } else {
+          clearSelection();
+        }
+        renderCombatants();
+      });
+    }
+    // --- Drag-resize для столбцов ---
+    document.querySelectorAll('.resizer').forEach(resizer => {
+      let startX, startWidth, th, idx;
+      resizer.addEventListener('mousedown', function(e) {
+        th = resizer.parentElement;
+        idx = +resizer.dataset.idx;
+        startX = e.pageX;
+        startWidth = th.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        function onMove(ev) {
+          const delta = ev.pageX - startX;
+          const newWidth = Math.max(48, startWidth + delta);
+          th.style.width = newWidth + 'px';
+          window._colWidths[idx] = newWidth;
+        }
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          document.body.style.cursor = '';
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }, 0);
+
+  // Инлайн-редактирование
+  app.querySelectorAll('.cell-type, .cell-initiative, .cell-ac, .cell-hp, .cell-note').forEach(el => {
+    el.addEventListener('click', () => {
+      window._editingCell = { row: Number(el.dataset.idx), col: el.className.replace('cell-','') };
+      renderCombatants();
+    });
+  });
+  app.querySelectorAll('.inline-edit').forEach(input => {
+    input.focus();
+    input.addEventListener('blur', saveInlineEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        saveInlineEdit.call(input);
+      } else if (e.key === 'Escape') {
+        window._editingCell = null;
+        renderCombatants();
+      }
+    });
+  });
+  function saveInlineEdit() {
+    const idx = Number(this.dataset.idx);
+    const col = this.dataset.col;
+    const val = this.value;
+    const c = getCombatants()[idx];
+    if (col === 'initiative' || col === 'ac' || col === 'hp') {
+      c[col] = Number(val);
+    } else if (col === 'type') {
+      c.type = val;
+    } else if (col === 'note') {
+      c.note = val;
+    }
+    // Плавное исчезновение input/select
+    const el = this;
+    el.classList.add('removing');
+    setTimeout(() => {
+      window._editingCell = null;
+      renderCombatants();
+    }, 180); // Длительность inlineFadeOut
+  }
 }
 
 // === Панель кубиков ===
@@ -1138,6 +1291,54 @@ document.addEventListener('click', function(e) {
     const combatants = getCombatants();
     combatants[idx].inventory.splice(itemIdx, 1);
     renderCombatants();
+  }
+  // Добавить эффект (делегирование через closest)
+  const addEffBtn = e.target.closest('.effect-add');
+  if (addEffBtn) {
+    const idx = Number(addEffBtn.dataset.idx);
+    const combatants = getCombatants();
+    if (!combatants[idx].effects) combatants[idx].effects = [];
+    showEffectModal({
+      onSubmit: ({ name, duration }) => {
+        combatants[idx].effects.push({ name, duration });
+        renderCombatants();
+      }
+    });
+    return;
+  }
+  // Удалить эффект (делегирование через closest)
+  const remEffBtn = e.target.closest('.effect-remove');
+  if (remEffBtn) {
+    const idx = Number(remEffBtn.dataset.idx);
+    const eff = Number(remEffBtn.dataset.eff);
+    const combatants = getCombatants();
+    if (combatants[idx].effects) combatants[idx].effects.splice(eff, 1);
+    renderCombatants();
+    return;
+  }
+  // Вдохновение (делегирование через closest)
+  const inspBtn = e.target.closest('.inspiration-btn');
+  if (inspBtn) {
+    const idx = Number(inspBtn.dataset.idx);
+    const combatants = getCombatants();
+    combatants[idx].inspiration = !combatants[idx].inspiration;
+    renderCombatants();
+    return;
+  }
+  // Слоты/Ресурсы (делегирование через closest)
+  const slotsBtn = e.target.closest('.spellslots-btn');
+  if (slotsBtn) {
+    const idx = Number(slotsBtn.dataset.idx);
+    const combatants = getCombatants();
+    showSpellSlotsModal({
+      combatant: combatants[idx],
+      onSubmit: ({spellSlots,resources}) => {
+        combatants[idx].spellSlots = spellSlots;
+        combatants[idx].resources = resources;
+        renderCombatants();
+      }
+    });
+    return;
   }
 });
 
@@ -1360,3 +1561,113 @@ document.addEventListener('contextmenu', function(e) {
     }
   }
 });
+
+function showEffectModal({onSubmit, onCancel}) {
+  const oldModal = document.getElementById('effect-modal');
+  if (oldModal) oldModal.remove();
+  const modal = document.createElement('div');
+  modal.id = 'effect-modal';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.background = 'rgba(0,0,0,0.25)';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.zIndex = '9999';
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px 20px;border-radius:16px;min-width:320px;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:14px;">
+      <div style="font-size:1.1em;font-weight:500;margin-bottom:4px;">Добавить эффект</div>
+      <input id="effect-name" type="text" placeholder="Название эффекта" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" autofocus />
+      <input id="effect-duration" type="text" placeholder="Длительность (опционально)" style="font-size:1em;padding:8px 12px;border-radius:8px;border:1.5px solid #e5e5ea;outline:none;" />
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button id="effect-cancel" style="padding:7px 18px;border-radius:8px;border:none;background:#e5e5ea;cursor:pointer;">Отмена</button>
+        <button id="effect-ok" style="padding:7px 18px;border-radius:8px;border:none;background:#007aff;color:#fff;cursor:pointer;">OK</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const nameInput = modal.querySelector('#effect-name');
+  nameInput.focus();
+  nameInput.select();
+  function close() { modal.remove(); if (onCancel) onCancel(); }
+  modal.querySelector('#effect-cancel').onclick = close;
+  modal.querySelector('#effect-ok').onclick = () => {
+    const name = nameInput.value.trim();
+    const duration = modal.querySelector('#effect-duration').value.trim();
+    if (name) { onSubmit({ name, duration }); close(); }
+    else nameInput.focus();
+  };
+  nameInput.onkeydown = (e) => {
+    if (e.key === 'Enter') modal.querySelector('#effect-ok').click();
+    if (e.key === 'Escape') close();
+  };
+}
+
+function showSpellSlotsModal({combatant, onSubmit, onCancel}) {
+  const oldModal = document.getElementById('spellslots-modal');
+  if (oldModal) oldModal.remove();
+  const modal = document.createElement('div');
+  modal.id = 'spellslots-modal';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.background = 'rgba(0,0,0,0.25)';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.zIndex = '9999';
+  const slots = (combatant.spellSlots||[null,null,null,null,null,null,null,null,null]).slice(0,9);
+  const resources = (combatant.resources||[]).slice();
+  modal.innerHTML = `
+    <div style="background:#fff;padding:24px 20px;border-radius:16px;min-width:340px;box-shadow:0 8px 32px #0002;display:flex;flex-direction:column;gap:14px;">
+      <div style="font-size:1.1em;font-weight:500;margin-bottom:4px;">Слоты заклинаний и ресурсы</div>
+      <div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;'>
+        ${slots.map((val,idx)=>`<div style='display:flex;flex-direction:column;align-items:center;'><span style='font-size:0.98em;color:#888;'>${idx+1}</span><input type='number' min='0' max='99' value='${val!=null?val:''}' data-slot='${idx}' style='width:38px;padding:4px 6px;border-radius:7px;border:1.5px solid #e5e5ea;text-align:center;font-size:1em;'></div>`).join('')}
+      </div>
+      <div style='font-size:1em;font-weight:500;margin:8px 0 2px 0;'>Ресурсы</div>
+      <div id='resources-list' style='display:flex;flex-direction:column;gap:6px;'>
+        ${resources.map((r,ri)=>`<div style='display:flex;gap:6px;align-items:center;'><input type='text' value='${r.name||''}' placeholder='Название' data-resname='${ri}' style='width:90px;padding:4px 8px;border-radius:7px;border:1.5px solid #e5e5ea;font-size:1em;'><input type='number' value='${r.value||0}' min='0' max='99' data-resval='${ri}' style='width:44px;padding:4px 6px;border-radius:7px;border:1.5px solid #e5e5ea;text-align:center;font-size:1em;'><button class='res-del' data-resdel='${ri}' style='background:#eee;color:#c00;border:none;border-radius:6px;padding:2px 6px;cursor:pointer;'>×</button></div>`).join('')}
+      </div>
+      <button id='add-resource' style='margin:6px 0 0 0;padding:6px 14px;border-radius:8px;background:#e5e5ea;color:#222;border:none;cursor:pointer;'>+ Ресурс</button>
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:10px;">
+        <button id="spellslots-cancel" style="padding:7px 18px;border-radius:8px;border:none;background:#e5e5ea;cursor:pointer;">Отмена</button>
+        <button id="spellslots-ok" style="padding:7px 18px;border-radius:8px;border:none;background:#007aff;color:#fff;cursor:pointer;">OK</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // Логика
+  modal.querySelector('#add-resource').onclick = () => {
+    resources.push({name:'',value:0});
+    modal.remove();
+    showSpellSlotsModal({combatant:{...combatant,spellSlots:slots,resources},onSubmit,onCancel});
+  };
+  modal.querySelectorAll('.res-del').forEach(btn=>{
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.resdel);
+      resources.splice(idx,1);
+      modal.remove();
+      showSpellSlotsModal({combatant:{...combatant,spellSlots:slots,resources},onSubmit,onCancel});
+    };
+  });
+  function close() { modal.remove(); if(onCancel) onCancel(); }
+  modal.querySelector('#spellslots-cancel').onclick = close;
+  modal.querySelector('#spellslots-ok').onclick = () => {
+    // Собираем значения
+    const newSlots = Array.from(modal.querySelectorAll('input[data-slot]')).map(inp=>{
+      const v = inp.value.trim();
+      return v===''?null:Number(v);
+    });
+    const newResources = Array.from(modal.querySelectorAll('input[data-resname]')).map((inp,ri)=>({
+      name: inp.value.trim(),
+      value: Number(modal.querySelector(`input[data-resval="${ri}"]`).value)
+    })).filter(r=>r.name);
+    onSubmit({spellSlots:newSlots,resources:newResources});
+    close();
+  };
+}
