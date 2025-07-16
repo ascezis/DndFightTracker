@@ -552,8 +552,6 @@ var oWeaponProps = {
   },	
 
 }
-
-
 export const allItems = [
 		{
 		"en": {

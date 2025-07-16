@@ -1,4 +1,4 @@
-// renderer.js — точка входа для логики интерфейса D&D Tracker
+
 
 import {
   getCombatants,
